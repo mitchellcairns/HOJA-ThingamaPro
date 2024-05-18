@@ -3,8 +3,7 @@
 
 // Device stuff
 #define HOJA_DEVICE_ID  0xA00A
-#define HOJA_FW_VERSION 0x0A00
-#define HOJA_SETTINGS_VERSION 0xA000
+#define HOJA_FW_VERSION 0x0A01
 
 // RGB Stuff
 //#define HOJA_RGB_PIN 23
@@ -16,9 +15,8 @@
 //#define HOJA_CLOCK_PIN 4
 //#define HOJA_LATCH_PIN 5
 
-// If we do not have native analog triggers
-// set this to zero
-#define HOJA_ANALOG_TRIGGERS 0
+#define HOJA_ANALOG_HAIRTRIGGER_L 50<<4
+#define HOJA_ANALOG_HAIRTRIGGER_R 50<<4
 
 // Sets the analog light trigger level for SP function
 #define HOJA_ANALOG_LIGHT 50
@@ -41,7 +39,8 @@
 #define HOJA_CAPABILITY_NINTENDO_SERIAL 0
 #define HOJA_CAPABILITY_NINTENDO_JOYBUS 1
 
-#define HOJA_CAPABILITY_RUMBLE 1
+#define HOJA_CAPABILITY_RUMBLE_ERM 1
+#define HOJA_CAPABILITY_RUMBLE_LRA 0
 
 #define HOJA_RGB_GROUP_RS       {-1}
 #define HOJA_RGB_GROUP_LS       {-1}
@@ -54,10 +53,10 @@
 #define HOJA_RGB_GROUP_X        {-1}
 #define HOJA_RGB_GROUP_A        {-1}
 #define HOJA_RGB_GROUP_B        {-1}
-
-#define HOJA_I2C_BUS i2c0
-#define HOJA_I2CINPUT_ADDRESS 0x76
-#define HOJA_I2C_SDA 28
-#define HOJA_I2C_SCL 29
+#define HOJA_RGB_GROUP_L        {-1}
+#define HOJA_RGB_GROUP_R        {-1}
+#define HOJA_RGB_GROUP_ZR       {-1}
+#define HOJA_RGB_GROUP_ZL       {-1}
+#define HOJA_RGB_GROUP_PLAYER   {-1}
 
 #endif

@@ -1,6 +1,8 @@
 #include "hoja_includes.h"
 #include "app_rumble.h"
+#include "app_imu.h"
 #include "main.h"
+
 
 button_remap_s user_map = {
     .dpad_up = MAPCODE_DUP,
@@ -24,25 +26,6 @@ button_remap_s user_map = {
     .button_stick_right = MAPCODE_B_STICKR,
 };
 
-uint main_slice_num = 0;
-uint brake_slice_num = 0;
-
-void _gpio_put_od(uint gpio, bool level)
-{
-    if(level)
-    {
-        gpio_set_dir(gpio, GPIO_IN);
-        gpio_pull_up(gpio);
-        gpio_put(gpio, 1);
-    }
-    else
-    {
-        gpio_set_dir(gpio, GPIO_OUT);
-        gpio_disable_pulls(gpio);
-        gpio_put(gpio, 0);
-    }
-}
-
 void cb_hoja_hardware_setup()
 {
     // Set up GPIO for input buttons
@@ -51,44 +34,16 @@ void cb_hoja_hardware_setup()
     hoja_setup_gpio_button(PGPIO_BTN_X);
     hoja_setup_gpio_button(PGPIO_BTN_Y);
 
-    hoja_setup_gpio_button(PGPIO_BTN_LEFT);
-    hoja_setup_gpio_button(PGPIO_BTN_RIGHT);
-    hoja_setup_gpio_button(PGPIO_BTN_UP);
-    hoja_setup_gpio_button(PGPIO_BTN_DOWN);
-
     hoja_setup_gpio_button(PGPIO_BTN_START);
-
     hoja_setup_gpio_button(PGPIO_BTN_L);
     hoja_setup_gpio_button(PGPIO_BTN_R);
     hoja_setup_gpio_button(PGPIO_BTN_ZL);
     hoja_setup_gpio_button(PGPIO_BTN_ZR);
 
-    // Set up Rumble GPIO
-    gpio_init(PGPIO_RUMBLE_MAIN);
-    gpio_init(PGPIO_RUMBLE_BRAKE);
-
-    gpio_set_dir(PGPIO_RUMBLE_MAIN, GPIO_OUT);
-    gpio_set_dir(PGPIO_RUMBLE_BRAKE, GPIO_OUT);
-
-    gpio_set_function(PGPIO_RUMBLE_MAIN, GPIO_FUNC_PWM);
-    gpio_set_function(PGPIO_RUMBLE_BRAKE, GPIO_FUNC_PWM);
-
-    main_slice_num = pwm_gpio_to_slice_num(PGPIO_RUMBLE_MAIN);
-    brake_slice_num = pwm_gpio_to_slice_num(PGPIO_RUMBLE_BRAKE);
-
-    pwm_set_wrap(main_slice_num, 255);
-    pwm_set_wrap(brake_slice_num, 255);
-
-    pwm_set_chan_level(main_slice_num, PWM_CHAN_B, 0);    // B for odd pins
-    pwm_set_chan_level(brake_slice_num, PWM_CHAN_B, 255); // B for odd pins
-
-    pwm_set_enabled(main_slice_num, true);
-    pwm_set_enabled(brake_slice_num, true);
-
-    pwm_set_gpio_level(PGPIO_RUMBLE_BRAKE, 255);
-    pwm_set_gpio_level(PGPIO_RUMBLE_MAIN, 0);
-
-    sleep_us(150); // Stabilize voltages
+    hoja_setup_gpio_button(PGPIO_BTN_DUP);
+    hoja_setup_gpio_button(PGPIO_BTN_DDOWN);
+    hoja_setup_gpio_button(PGPIO_BTN_DLEFT);
+    hoja_setup_gpio_button(PGPIO_BTN_DRIGHT);
 
     // initialize SPI at 1 MHz
     // initialize SPI at 3 MHz just to test
@@ -106,26 +61,37 @@ void cb_hoja_hardware_setup()
     gpio_init(PGPIO_RS_CS);
     gpio_set_dir(PGPIO_RS_CS, GPIO_OUT);
     gpio_put(PGPIO_RS_CS, true); // active low
+
+    // Set up ADC Triggers
+	adc_init();
+	adc_gpio_init(PGPIO_LT);
+	adc_gpio_init(PGPIO_RT);
 }
+
+int lt_offset = 0;
+int rt_offset = 0;
+bool trigger_offset_obtained = false;
 
 void cb_hoja_read_buttons(button_data_s *data)
 {
+    // Keypad version
     data->button_a  = !gpio_get(PGPIO_BTN_A);
     data->button_b  = !gpio_get(PGPIO_BTN_B);
     data->button_x  = !gpio_get(PGPIO_BTN_X);
     data->button_y  = !gpio_get(PGPIO_BTN_Y);
 
-    data->dpad_left     = !gpio_get(PGPIO_BTN_LEFT);
-    data->dpad_right    = !gpio_get(PGPIO_BTN_RIGHT);
-    data->dpad_down     = !gpio_get(PGPIO_BTN_DOWN);
-    data->dpad_up       = !gpio_get(PGPIO_BTN_UP);
+    data->dpad_left     = !gpio_get(PGPIO_BTN_DLEFT);
+    data->dpad_right    = !gpio_get(PGPIO_BTN_DRIGHT);
+    data->dpad_down     = !gpio_get(PGPIO_BTN_DDOWN);
+    data->dpad_up       = !gpio_get(PGPIO_BTN_DUP);
 
-    data->button_plus       = !gpio_get(PGPIO_BTN_START);
+    data->button_plus   = !gpio_get(PGPIO_BTN_START);
 
     data->trigger_r     = !gpio_get(PGPIO_BTN_ZR);
     data->trigger_l     = !gpio_get(PGPIO_BTN_ZL);
     data->trigger_zl    = !gpio_get(PGPIO_BTN_L);
     data->trigger_zr    = !gpio_get(PGPIO_BTN_R);
+    //data->button_safemode = !gpio_get(PGPIO_BUTTON_MODE);
 }
 
 void cb_hoja_read_analog(a_data_s *data)
@@ -178,23 +144,18 @@ void cb_hoja_task_1_hook(uint32_t timestamp)
 int main()
 {
     stdio_init_all();
-    sleep_ms(5);
-    printf("ThingamaPro Started.\n");
+    sleep_ms(100);
 
-    cb_hoja_hardware_setup();
+    printf("Thingamapro Started.\n");
 
-    button_data_s tmp = {0};
-    cb_hoja_read_buttons(&tmp);
-
-    hoja_config_t _config = {
-            .input_method   = INPUT_METHOD_USB,
-            .input_mode     = INPUT_MODE_LOAD,
-        };
-
-    if(!gpio_get(PGPIO_BTN_START))
+    hoja_setup_gpio_button(PGPIO_BTN_START);
+    // Handle bootloader stuff
+    if (!gpio_get(PGPIO_BTN_START))
     {
         reset_usb_boot(0, 0);
     }
 
-    hoja_init(&_config);
+    hoja_config_t config = {.input_method = INPUT_METHOD_USB, .input_mode = INPUT_MODE_LOAD};
+
+    hoja_init(&config);
 }
