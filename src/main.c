@@ -45,6 +45,9 @@ void cb_hoja_hardware_setup()
     hoja_setup_gpio_button(PGPIO_BTN_DLEFT);
     hoja_setup_gpio_button(PGPIO_BTN_DRIGHT);
 
+    //hoja_setup_gpio_button(PGPIO_BTN_STICKL);
+    //hoja_setup_gpio_button(PGPIO_BTN_STICKR);
+
     // initialize SPI at 1 MHz
     // initialize SPI at 3 MHz just to test
     spi_init(spi0, 3000 * 1000);
@@ -61,11 +64,6 @@ void cb_hoja_hardware_setup()
     gpio_init(PGPIO_RS_CS);
     gpio_set_dir(PGPIO_RS_CS, GPIO_OUT);
     gpio_put(PGPIO_RS_CS, true); // active low
-
-    // Set up ADC Triggers
-	adc_init();
-	adc_gpio_init(PGPIO_LT);
-	adc_gpio_init(PGPIO_RT);
 }
 
 int lt_offset = 0;
@@ -87,11 +85,17 @@ void cb_hoja_read_buttons(button_data_s *data)
 
     data->button_plus   = !gpio_get(PGPIO_BTN_START);
 
+    // Broken on boards? lol oops
+    //data->button_stick_left = !gpio_get(PGPIO_BTN_STICKL);
+    //data->button_stick_right = !gpio_get(PGPIO_BTN_STICKR);
+
     data->trigger_r     = !gpio_get(PGPIO_BTN_ZR);
     data->trigger_l     = !gpio_get(PGPIO_BTN_ZL);
     data->trigger_zl    = !gpio_get(PGPIO_BTN_L);
     data->trigger_zr    = !gpio_get(PGPIO_BTN_R);
-    //data->button_safemode = !gpio_get(PGPIO_BUTTON_MODE);
+
+    data->button_unbind = data->button_plus;
+    // data->button_safemode = !gpio_get(PGPIO_BUTTON_MODE);
 }
 
 void cb_hoja_read_analog(a_data_s *data)
